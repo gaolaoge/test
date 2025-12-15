@@ -1,0 +1,141 @@
+class GPromise {
+  state = "pending";
+  value;
+  reason;
+  onFulfilledCallbacks = [];
+  onRejectedCallbacks = [];
+
+  constructor(executor) {
+    try {
+      executor(this.resolve, this.reject);
+    } catch (e) {
+      this.reject(e);
+    }
+  }
+
+  resolve = (value) => {
+    if (this.state !== "pending") return;
+    this.state = "fulfilled";
+    this.value = value;
+    this.onFulfilledCallbacks.forEach((callback) => callback());
+  };
+
+  reject = (reason) => {
+    if (this.state !== "pending") return;
+    this.state = "rejected";
+    this.reason = reason;
+    this.onRejectedCallbacks.forEach((callback) => callback());
+  };
+
+  then = (onFulfilled, onRejected) => {
+    onFulfilled =
+      typeof onFulfilled === "function" ? onFulfilled : (value) => value;
+    onRejected =
+      typeof onRejected === "function"
+        ? onRejected
+        : (reason) => {
+            throw reason;
+          };
+    return new GPromise((resolve, reject) => {
+      if (this.state === "pending") {
+        this.onFulfilledCallbacks.push(() => {
+          try {
+            const result = onFulfilled(this.value);
+            resolve(result);
+          } catch (e) {
+            reject(e);
+          }
+        });
+        this.onRejectedCallbacks.push(() => {
+          try {
+            const result = onRejected(this.reason);
+            resolve(result);
+          } catch (e) {
+            reject(e);
+          }
+        });
+      } else if (this.state === "fulfilled") {
+        try {
+          const result = onFulfilled(this.value);
+          resolve(result);
+        } catch (e) {
+          reject(e);
+        }
+      } else if (this.state === "rejected") {
+        try {
+          const result = onRejected(this.reason);
+          resolve(result);
+        } catch (e) {
+          reject(e);
+        }
+      }
+    });
+  };
+
+  catch = (onRejected) => {
+    return this.then(null, onRejected);
+  };
+
+  finally = (callback) => {
+    return this.then(
+      (value) => GPromise.resolve(callback).then(() => value),
+      (reason) =>
+        GPromise.resolve(callback).then(() => {
+          throw reason;
+        })
+    );
+  };
+
+  static resolve(value) {
+    if (value instanceof GPromise) {
+      return value;
+    }
+    return new GPromise((resolve) => resolve(value));
+  }
+
+  static reject(reason) {
+    return new GPromise((_resolve, reject) => reject(reason));
+  }
+
+  static all(promises) {
+    return new GPromise((resolve, reject) => {
+      if (!Array.isArray(promises)) {
+        reject(new TypeError("promises must be an Array"));
+        return;
+      }
+      let count = promises.length;
+      if (count === 0) {
+        resolve([]);
+      }
+      const values = new Array(count);
+      let resolvedCount = 0;
+      promises.forEach((promise, index) => {
+        GPromise.resolve(promise).then(
+          (value) => {
+            values[index] = value;
+            resolvedCount++;
+            if (resolvedCount === count) {
+              resolve(values);
+            }
+          },
+          (reason) => reject(reason)
+        );
+      });
+    });
+  }
+
+  static race(promises) {
+    return new GPromise((resolve, reject) => {
+      if (!Array.isArray(promises)) {
+        reject(new TypeError("promises must be an Array"));
+        return;
+      }
+      promises.forEach((promise) => {
+        GPromise.resolve(promise).then(
+          (value) => resolve(value),
+          (reason) => reject(reason)
+        );
+      });
+    });
+  }
+}
