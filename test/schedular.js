@@ -1,3 +1,8 @@
+/**
+ * 实现 1 个带并发限制的异步调度器 Schedular ，保证同时运行的任务至多 n 个。
+ * .add 要返回 Promise
+ */
+
 class Schedular {
   concurrencyLimit = 0;
   runningCount = 0;

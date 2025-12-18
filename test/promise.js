@@ -24,7 +24,7 @@ class GPromise {
     if (this.state !== "pending") return;
     this.state = "rejected";
     this.reason = reason;
-    this.onRejectedCallbacks.forEach((callback) => callback());
+    this.onRejectedCallbacks.forEach((callback) => callback()); // TODO 逻辑错误
   };
 
   then = (onFulfilled, onRejected) => {
